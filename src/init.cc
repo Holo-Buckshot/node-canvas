@@ -90,5 +90,5 @@ NAN_MODULE_INIT(init) {
 }
 
 NODE_MODULE_INIT() {
- Init(exports);   
+ init(exports);   
 }
