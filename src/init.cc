@@ -85,4 +85,6 @@ NAN_MODULE_INIT(init) {
   Nan::Set(target, Nan::New<String>("freetypeVersion").ToLocalChecked(), Nan::New<String>(freetype_version).ToLocalChecked()).Check();
 }
 
-NODE_MODULE(canvas, init);
+NODE_MODULE_INIT() {
+ init(exports);   
+}
