@@ -80,15 +80,9 @@ NAN_MODULE_INIT(init) {
 #endif
 #endif
 
-#ifdef HAVE_RSVG
-  Nan::Set(target, Nan::New<String>("rsvgVersion").ToLocalChecked(), Nan::New<String>(LIBRSVG_VERSION).ToLocalChecked()).Check();
-#endif
-
   char freetype_version[10];
   snprintf(freetype_version, 10, "%d.%d.%d", FREETYPE_MAJOR, FREETYPE_MINOR, FREETYPE_PATCH);
   Nan::Set(target, Nan::New<String>("freetypeVersion").ToLocalChecked(), Nan::New<String>(freetype_version).ToLocalChecked()).Check();
 }
 
-NODE_MODULE_INIT() {
- init(exports);   
-}
+NODE_MODULE(canvas, init);

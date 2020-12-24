@@ -65,9 +65,7 @@ function done (benchmark, times, start, isAsync) {
 // node-canvas
 
 bm('fillStyle= name', function () {
-  for (let i = 0; i < 10000; i++) {
-    ctx.fillStyle = '#fefefe'
-  }
+  ctx.fillStyle = 'transparent'
 })
 
 bm('lineTo()', function () {
@@ -157,7 +155,7 @@ bm('getImageData(0,0,100,100)', function () {
 })
 
 bm('PNGStream 200x200', function (done) {
-  var stream = canvas.createPNGStream()
+  var stream = canvas.createSyncPNGStream()
   stream.on('data', function (chunk) {
     // whatever
   })
