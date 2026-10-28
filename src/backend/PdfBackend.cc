@@ -1,4 +1,5 @@
 #include "PdfBackend.h"
+#include "../InstanceData.h"
 
 #include <cairo-pdf.h>
 #include "../Canvas.h"
@@ -34,13 +35,15 @@ cairo_surface_t* PdfBackend::recreateSurface() {
 }
 
 
-Nan::Persistent<FunctionTemplate> PdfBackend::constructor;
+Nan::Persistent<FunctionTemplate>& PdfBackend::constructor() {
+  return InstanceData::Get()->pdfBackendCtor;
+}
 
 void PdfBackend::Initialize(Local<Object> target) {
   Nan::HandleScope scope;
 
   Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(PdfBackend::New);
-  PdfBackend::constructor.Reset(ctor);
+  PdfBackend::constructor().Reset(ctor);
   ctor->InstanceTemplate()->SetInternalFieldCount(1);
   ctor->SetClassName(Nan::New<String>("PdfBackend").ToLocalChecked());
   Nan::Set(target,

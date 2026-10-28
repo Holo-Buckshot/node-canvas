@@ -74,6 +74,7 @@
         'src/Image.cc',
         'src/ImageData.cc',
         'src/init.cc',
+        'src/InstanceData.cc',
         'src/register_font.cc'
       ],
       'conditions': [

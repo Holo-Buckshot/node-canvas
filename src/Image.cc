@@ -1,6 +1,7 @@
 // Copyright (c) 2010 LearnBoost <tj@learnboost.com>
 
 #include "Image.h"
+#include "InstanceData.h"
 
 #include "bmp/BMPParser.h"
 #include "Canvas.h"
@@ -43,7 +44,9 @@ typedef struct {
 
 using namespace v8;
 
-Nan::Persistent<FunctionTemplate> Image::constructor;
+Nan::Persistent<FunctionTemplate>& Image::constructor() {
+  return InstanceData::Get()->imageCtor;
+}
 
 /*
  * Initialize Image.
@@ -54,7 +57,7 @@ Image::Initialize(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target) {
   Nan::HandleScope scope;
 
   Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(Image::New);
-  constructor.Reset(ctor);
+  constructor().Reset(ctor);
   ctor->InstanceTemplate()->SetInternalFieldCount(1);
   ctor->SetClassName(Nan::New("Image").ToLocalChecked());
 
@@ -186,7 +189,7 @@ NAN_SETTER(Image::SetHeight) {
  */
 
 NAN_METHOD(Image::GetSource){
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
+  if (!Image::constructor().Get(info.GetIsolate())->HasInstance(info.This())) {
     // #1534
     Nan::ThrowTypeError("Method Image.GetSource called on incompatible receiver");
     return;
@@ -231,7 +234,7 @@ Image::clearData() {
  */
 
 NAN_METHOD(Image::SetSource){
-  if (!Image::constructor.Get(info.GetIsolate())->HasInstance(info.This())) {
+  if (!Image::constructor().Get(info.GetIsolate())->HasInstance(info.This())) {
     // #1534
     Nan::ThrowTypeError("Method Image.SetSource called on incompatible receiver");
     return;
@@ -271,14 +274,16 @@ NAN_METHOD(Image::SetSource){
         argv[0] = Nan::Error(Nan::New(cairo_status_to_string(status)).ToLocalChecked());
       }
       Local<Context> ctx = Nan::GetCurrentContext();
-      Nan::Call(onerrorFn.As<Function>(), ctx->Global(), 1, argv).ToLocalChecked();
+      // Empty if the handler threw (the exception propagates to JS) or the
+      // environment is terminating; don't abort the process either way.
+      (void) Nan::Call(onerrorFn.As<Function>(), ctx->Global(), 1, argv);
     }
   } else {
     img->loaded();
     Local<Value> onloadFn = Nan::Get(info.This(), Nan::New("onload").ToLocalChecked()).ToLocalChecked();
     if (onloadFn->IsFunction()) {
       Local<Context> ctx = Nan::GetCurrentContext();
-      Nan::Call(onloadFn.As<Function>(), ctx->Global(), 0, NULL).ToLocalChecked();
+      (void) Nan::Call(onloadFn.As<Function>(), ctx->Global(), 0, NULL);
     }
   }
 }

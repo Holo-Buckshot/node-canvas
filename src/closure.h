@@ -26,6 +26,11 @@ struct Closure {
   Nan::Callback cb;
   Canvas* canvas = nullptr;
   cairo_status_t status = CAIRO_STATUS_SUCCESS;
+  // Set when the owning environment shut down before the async encode
+  // finished; the completion callback then only frees native memory.
+  bool orphaned = false;
+  // The thread pool request running the encode, if any.
+  uv_work_t* req = nullptr;
 
   static cairo_status_t writeVec(void *c, const uint8_t *odata, unsigned len) {
     Closure* closure = static_cast<Closure*>(c);

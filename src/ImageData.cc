@@ -1,12 +1,15 @@
 // Copyright (c) 2010 LearnBoost <tj@learnboost.com>
 
 #include "ImageData.h"
+#include "InstanceData.h"
 
 #include "Util.h"
 
 using namespace v8;
 
-Nan::Persistent<FunctionTemplate> ImageData::constructor;
+Nan::Persistent<FunctionTemplate>& ImageData::constructor() {
+  return InstanceData::Get()->imageDataCtor;
+}
 
 /*
  * Initialize ImageData.
@@ -18,7 +21,7 @@ ImageData::Initialize(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target) {
 
   // Constructor
   Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(ImageData::New);
-  constructor.Reset(ctor);
+  constructor().Reset(ctor);
   ctor->InstanceTemplate()->SetInternalFieldCount(1);
   ctor->SetClassName(Nan::New("ImageData").ToLocalChecked());
 

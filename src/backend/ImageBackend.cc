@@ -1,4 +1,5 @@
 #include "ImageBackend.h"
+#include "../InstanceData.h"
 
 using namespace v8;
 
@@ -55,13 +56,15 @@ void ImageBackend::setFormat(cairo_format_t _format) {
 	this->format = _format;
 }
 
-Nan::Persistent<FunctionTemplate> ImageBackend::constructor;
+Nan::Persistent<FunctionTemplate>& ImageBackend::constructor() {
+  return InstanceData::Get()->imageBackendCtor;
+}
 
 void ImageBackend::Initialize(Local<Object> target) {
 	Nan::HandleScope scope;
 
 	Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(ImageBackend::New);
-	ImageBackend::constructor.Reset(ctor);
+	ImageBackend::constructor().Reset(ctor);
 	ctor->InstanceTemplate()->SetInternalFieldCount(1);
 	ctor->SetClassName(Nan::New<String>("ImageBackend").ToLocalChecked());
   Nan::Set(target,

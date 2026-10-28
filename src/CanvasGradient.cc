@@ -1,13 +1,16 @@
 // Copyright (c) 2010 LearnBoost <tj@learnboost.com>
 
 #include "CanvasGradient.h"
+#include "InstanceData.h"
 
 #include "Canvas.h"
 #include "color.h"
 
 using namespace v8;
 
-Nan::Persistent<FunctionTemplate> Gradient::constructor;
+Nan::Persistent<FunctionTemplate>& Gradient::constructor() {
+  return InstanceData::Get()->gradientCtor;
+}
 
 /*
  * Initialize CanvasGradient.
@@ -19,7 +22,7 @@ Gradient::Initialize(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target) {
 
   // Constructor
   Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(Gradient::New);
-  constructor.Reset(ctor);
+  constructor().Reset(ctor);
   ctor->InstanceTemplate()->SetInternalFieldCount(1);
   ctor->SetClassName(Nan::New("CanvasGradient").ToLocalChecked());
 

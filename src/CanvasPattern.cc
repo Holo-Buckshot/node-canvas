@@ -1,6 +1,7 @@
 // Copyright (c) 2010 LearnBoost <tj@learnboost.com>
 
 #include "CanvasPattern.h"
+#include "InstanceData.h"
 
 #include "Canvas.h"
 #include "Image.h"
@@ -9,7 +10,9 @@ using namespace v8;
 
 const cairo_user_data_key_t *pattern_repeat_key;
 
-Nan::Persistent<FunctionTemplate> Pattern::constructor;
+Nan::Persistent<FunctionTemplate>& Pattern::constructor() {
+  return InstanceData::Get()->patternCtor;
+}
 
 /*
  * Initialize CanvasPattern.
@@ -21,7 +24,7 @@ Pattern::Initialize(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target) {
 
   // Constructor
   Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(Pattern::New);
-  constructor.Reset(ctor);
+  constructor().Reset(ctor);
   ctor->InstanceTemplate()->SetInternalFieldCount(1);
   ctor->SetClassName(Nan::New("CanvasPattern").ToLocalChecked());
 
@@ -49,7 +52,7 @@ NAN_METHOD(Pattern::New) {
   Local<Object> obj = Nan::To<Object>(info[0]).ToLocalChecked();
 
   // Image
-  if (Nan::New(Image::constructor)->HasInstance(obj)) {
+  if (Nan::New(Image::constructor())->HasInstance(obj)) {
     Image *img = Nan::ObjectWrap::Unwrap<Image>(obj);
     if (!img->isComplete()) {
       return Nan::ThrowError("Image given has not completed loading");
@@ -57,7 +60,7 @@ NAN_METHOD(Pattern::New) {
     surface = img->surface();
 
   // Canvas
-  } else if (Nan::New(Canvas::constructor)->HasInstance(obj)) {
+  } else if (Nan::New(Canvas::constructor())->HasInstance(obj)) {
     Canvas *canvas = Nan::ObjectWrap::Unwrap<Canvas>(obj);
     surface = canvas->surface();
   // Invalid

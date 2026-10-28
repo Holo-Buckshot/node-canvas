@@ -21,6 +21,7 @@
 #include "CanvasRenderingContext2d.h"
 #include "Image.h"
 #include "ImageData.h"
+#include "InstanceData.h"
 
 #include <ft2build.h>
 #include FT_FREETYPE_H
@@ -89,6 +90,10 @@ NAN_MODULE_INIT(init) {
   Nan::Set(target, Nan::New<String>("freetypeVersion").ToLocalChecked(), Nan::New<String>(freetype_version).ToLocalChecked()).Check();
 }
 
-NODE_MODULE_INIT() {
- init(exports);   
+// Context-aware initializer: runs once per environment that loads the addon
+// (the main thread and every worker_threads Worker), so each gets its own
+// classes and handles. See InstanceData.h.
+NODE_MODULE_INIT(/* exports, module, context */) {
+  InstanceData::Create(context->GetIsolate());
+  init(exports);
 }

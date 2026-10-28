@@ -8,9 +8,23 @@ project adheres to [Semantic Versioning](http://semver.org/).
 (Unreleased)
 ==================
 ### Changed
+* The native addon is now context-aware and can be loaded in the main thread
+  and in any number of `worker_threads` Workers at once. Native per-module
+  state (class templates, the DOMMatrix and font-parser hooks) is kept per
+  environment instead of in process-wide statics.
+* `npm install` always builds from source; the upstream prebuilt binaries are
+  not context-aware.
 ### Added
 * Added support for  `inverse()` and `invertSelf()` to `DOMMatrix` (#1648)
 ### Fixed
+* Async `toBuffer()`/`toDataURL()` callbacks ran on the main thread's event
+  loop when called from a worker.
+* Crashes when a worker using canvas exits or is terminated (addon unloaded
+  while pango was still running, encodes still pending on the thread pool).
+* `registerFont()` is safe to call while other threads render text.
+* Build on Node.js 20+ (`v8::AccessorSignature` was removed from V8).
+* A throwing `Image#onload`/`onerror` handler or `currentTransform`/`font`
+  setter input no longer aborts the process.
 * Fix Pango logging "expect ugly output" on Windows (#1643)
 * Fix benchmark for createPNGStream (#1672)
 

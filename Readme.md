@@ -62,6 +62,31 @@ loadImage('examples/images/lime-cat.jpg').then((image) => {
 })
 ```
 
+## Worker Threads
+
+canvas can be used from [`worker_threads`](https://nodejs.org/api/worker_threads.html)
+Workers, including several at once and alongside the main thread. Each thread
+gets its own copy of the classes; objects (a `Canvas`, `Image`, etc.) can't be
+passed between threads, so send encoded data such as a PNG `Buffer` instead.
+
+```javascript
+const { Worker, isMainThread, parentPort } = require('worker_threads')
+const { createCanvas } = require('canvas')
+
+if (isMainThread) {
+  const worker = new Worker(__filename)
+  worker.on('message', png => console.log('rendered', png.length, 'bytes'))
+} else {
+  const canvas = createCanvas(200, 200)
+  const ctx = canvas.getContext('2d')
+  ctx.fillText('Hello from a worker', 10, 100)
+  parentPort.postMessage(canvas.toBuffer('image/png'))
+}
+```
+
+Fonts added with `registerFont()` are registered process-wide, so a font
+registered in one thread can be used from every thread.
+
 ## Upgrading from 1.x to 2.x
 
 See the [changelog](https://github.com/Automattic/node-canvas/blob/master/CHANGELOG.md) for a guide to upgrading from 1.x to 2.x.

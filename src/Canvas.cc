@@ -1,6 +1,7 @@
 // Copyright (c) 2010 LearnBoost <tj@learnboost.com>
 
 #include "Canvas.h"
+#include "InstanceData.h"
 
 #include <algorithm> // std::min
 #include <assert.h>
@@ -12,6 +13,7 @@
 #include <cctype>
 #include <ctime>
 #include <glib.h>
+#include <mutex>
 #include "PNG.h"
 #include "register_font.h"
 #include <sstream>
@@ -38,9 +40,15 @@
 using namespace v8;
 using namespace std;
 
-Nan::Persistent<FunctionTemplate> Canvas::constructor;
+Nan::Persistent<FunctionTemplate>& Canvas::constructor() {
+  return InstanceData::Get()->canvasCtor;
+}
 
+// Fonts registered with registerFont(). Font registration is process-wide
+// (fontconfig/the system font host), so this list is shared by every
+// environment (main thread and worker threads) and guarded by a mutex.
 std::vector<FontFace> font_face_list;
+static std::mutex font_face_list_mutex;
 
 /*
  * Initialize Canvas.
@@ -52,7 +60,7 @@ Canvas::Initialize(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target) {
 
   // Constructor
   Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(Canvas::New);
-  constructor.Reset(ctor);
+  constructor().Reset(ctor);
   ctor->InstanceTemplate()->SetInternalFieldCount(1);
   ctor->SetClassName(Nan::New("Canvas").ToLocalChecked());
 
@@ -113,9 +121,9 @@ NAN_METHOD(Canvas::New) {
       backend = new ImageBackend(width, height);
   }
   else if (info[0]->IsObject()) {
-    if (Nan::New(ImageBackend::constructor)->HasInstance(info[0]) ||
-        Nan::New(PdfBackend::constructor)->HasInstance(info[0]) ||
-        Nan::New(SvgBackend::constructor)->HasInstance(info[0])) {
+    if (Nan::New(ImageBackend::constructor())->HasInstance(info[0]) ||
+        Nan::New(PdfBackend::constructor())->HasInstance(info[0]) ||
+        Nan::New(SvgBackend::constructor())->HasInstance(info[0])) {
       backend = Nan::ObjectWrap::Unwrap<Backend>(Nan::To<Object>(info[0]).ToLocalChecked());
     }else{
       return Nan::ThrowTypeError("Invalid arguments");
@@ -225,10 +233,21 @@ Canvas::ToJpegBufferAsync(uv_work_t *req) {
 
 void
 Canvas::ToBufferAsyncAfter(uv_work_t *req) {
-  Nan::HandleScope scope;
-  Nan::AsyncResource async("canvas:ToBufferAsyncAfter");
   Closure* closure = static_cast<Closure*>(req->data);
   delete req;
+
+  closure->req = nullptr;
+  InstanceData::Get()->pendingAsync.erase(closure);
+
+  if (closure->orphaned) {
+    // The environment (e.g. a terminated worker) is shutting down; there is
+    // no JS to call back into. See Cleanup() in InstanceData.cc.
+    delete closure;
+    return;
+  }
+
+  Nan::HandleScope scope;
+  Nan::AsyncResource async("canvas:ToBufferAsyncAfter");
 
   if (closure->status) {
     Local<Value> argv[1] = { Canvas::Error(closure->status) };
@@ -470,9 +489,13 @@ NAN_METHOD(Canvas::ToBuffer) {
 
     uv_work_t* req = new uv_work_t;
     req->data = closure;
+    closure->req = req;
     // Make sure the surface exists since we won't have an isolate context in the async block:
     canvas->surface();
-    uv_queue_work(uv_default_loop(), req, ToPngBufferAsync, (uv_after_work_cb)ToBufferAsyncAfter);
+    InstanceData::Get()->pendingAsync.insert(closure);
+    // Use the calling environment's loop: in a worker thread uv_default_loop()
+    // is the main thread's loop, which would run the callback on the wrong thread.
+    uv_queue_work(Nan::GetCurrentEventLoop(), req, ToPngBufferAsync, (uv_after_work_cb)ToBufferAsyncAfter);
 
     return;
   }
@@ -511,9 +534,11 @@ NAN_METHOD(Canvas::ToBuffer) {
 
     uv_work_t* req = new uv_work_t;
     req->data = closure;
+    closure->req = req;
     // Make sure the surface exists since we won't have an isolate context in the async block:
     canvas->surface();
-    uv_queue_work(uv_default_loop(), req, ToJpegBufferAsync, (uv_after_work_cb)ToBufferAsyncAfter);
+    InstanceData::Get()->pendingAsync.insert(closure);
+    uv_queue_work(Nan::GetCurrentEventLoop(), req, ToJpegBufferAsync, (uv_after_work_cb)ToBufferAsyncAfter);
 
     return;
   }
@@ -739,6 +764,7 @@ NAN_METHOD(Canvas::RegisterFont) {
     pango_font_description_set_style(user_desc, Canvas::GetStyleFromCSSString(style));
     pango_font_description_set_family(user_desc, family);
 
+    std::lock_guard<std::mutex> lock(font_face_list_mutex);
     auto found = std::find_if(font_face_list.begin(), font_face_list.end(), [&](FontFace& f) {
       return pango_font_description_equal(f.sys_desc, sys_desc);
     });
@@ -847,6 +873,7 @@ Canvas::ResolveFontDescription(const PangoFontDescription *desc) {
   // One of the user-specified families could map to multiple SFNT family names
   // if someone registered two different fonts under the same family name.
   // https://drafts.csswg.org/css-fonts-3/#font-style-matching
+  std::lock_guard<std::mutex> lock(font_face_list_mutex);
   FontFace best;
   istringstream families(pango_font_description_get_family(desc));
   unordered_set<string> seen_families;

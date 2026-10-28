@@ -1,4 +1,5 @@
 #include "SvgBackend.h"
+#include "../InstanceData.h"
 
 #include <cairo-svg.h>
 #include "../Canvas.h"
@@ -42,13 +43,15 @@ cairo_surface_t* SvgBackend::recreateSurface() {
  }
 
 
-Nan::Persistent<FunctionTemplate> SvgBackend::constructor;
+Nan::Persistent<FunctionTemplate>& SvgBackend::constructor() {
+  return InstanceData::Get()->svgBackendCtor;
+}
 
 void SvgBackend::Initialize(Local<Object> target) {
   Nan::HandleScope scope;
 
   Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(SvgBackend::New);
-  SvgBackend::constructor.Reset(ctor);
+  SvgBackend::constructor().Reset(ctor);
   ctor->InstanceTemplate()->SetInternalFieldCount(1);
   ctor->SetClassName(Nan::New<String>("SvgBackend").ToLocalChecked());
   Nan::Set(target,
