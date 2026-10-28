@@ -4,98 +4,152 @@
 
 #include "Canvas.h"
 #include "Image.h"
-
-using namespace v8;
-
-const cairo_user_data_key_t *pattern_repeat_key;
-
-Nan::Persistent<FunctionTemplate> Pattern::constructor;
+#include "InstanceData.h"
 
 /*
  * Initialize CanvasPattern.
  */
 
 void
-Pattern::Initialize(Nan::ADDON_REGISTER_FUNCTION_ARGS_TYPE target) {
-  Nan::HandleScope scope;
+Pattern::Initialize(Napi::Env& env, Napi::Object& exports) {
+  InstanceData* data = env.GetInstanceData<InstanceData>();
 
   // Constructor
-  Local<FunctionTemplate> ctor = Nan::New<FunctionTemplate>(Pattern::New);
-  constructor.Reset(ctor);
-  ctor->InstanceTemplate()->SetInternalFieldCount(1);
-  ctor->SetClassName(Nan::New("CanvasPattern").ToLocalChecked());
-
-  ctor->InstanceTemplate()->SetInternalFieldCount(1);
-  ctor->SetClassName(Nan::New("CanvasPattern").ToLocalChecked());
+  Napi::Function ctor = DefineClass(env, "CanvasPattern", {
+    InstanceMethod<&Pattern::setTransform>("setTransform", napi_default_method)
+  });
 
   // Prototype
-  Local<Context> ctx = Nan::GetCurrentContext();
-  Nan::Set(target,
-           Nan::New("CanvasPattern").ToLocalChecked(),
-           ctor->GetFunction(ctx).ToLocalChecked());
+  exports.Set("CanvasPattern", ctor);
+  data->CanvasPatternCtor = Napi::Persistent(ctor);
 }
 
 /*
  * Initialize a new CanvasPattern.
  */
 
-NAN_METHOD(Pattern::New) {
-  if (!info.IsConstructCall()) {
-    return Nan::ThrowTypeError("Class constructors cannot be invoked without 'new'");
+Pattern::Pattern(const Napi::CallbackInfo& info) : ObjectWrap<Pattern>(info), env(info.Env()) {
+  InstanceData* data = env.GetInstanceData<InstanceData>();
+  info.This().As<Napi::Object>().TypeTag(&data->tags.Pattern);
+
+  if (!info[0].IsObject()) {
+    Napi::TypeError::New(env, "Image or Canvas expected").ThrowAsJavaScriptException();
+    return;
   }
 
-  cairo_surface_t *surface;
-
-  Local<Object> obj = Nan::To<Object>(info[0]).ToLocalChecked();
+  Napi::Object obj = info[0].As<Napi::Object>();
 
   // Image
-  if (Nan::New(Image::constructor)->HasInstance(obj)) {
-    Image *img = Nan::ObjectWrap::Unwrap<Image>(obj);
-    if (!img->isComplete()) {
-      return Nan::ThrowError("Image given has not completed loading");
+  if (obj.CheckTypeTag(&data->tags.Image)) {
+    image = Image::Unwrap(obj);
+    if (!image->isComplete()) {
+      Napi::Error::New(env, "Image given has not completed loading").ThrowAsJavaScriptException();
+      return;
     }
-    surface = img->surface();
+    value = Napi::Persistent(obj);
 
   // Canvas
-  } else if (Nan::New(Canvas::constructor)->HasInstance(obj)) {
-    Canvas *canvas = Nan::ObjectWrap::Unwrap<Canvas>(obj);
-    surface = canvas->surface();
+  } else if (obj.CheckTypeTag(&data->tags.Canvas)) {
+    canvas = Canvas::Unwrap(obj);
+    value = Napi::Persistent(obj);
   // Invalid
   } else {
-    return Nan::ThrowTypeError("Image or Canvas expected");
+    if (!env.IsExceptionPending()) {
+      Napi::TypeError::New(env, "Image or Canvas expected").ThrowAsJavaScriptException();
+    }
+    return;
   }
-  repeat_type_t repeat = REPEAT;
-  if (0 == strcmp("no-repeat", *Nan::Utf8String(info[1]))) {
-    repeat = NO_REPEAT;
-  } else if (0 == strcmp("repeat-x", *Nan::Utf8String(info[1]))) {
-    repeat = REPEAT_X;
-  } else if (0 == strcmp("repeat-y", *Nan::Utf8String(info[1]))) {
-    repeat = REPEAT_Y;
+
+  if (info[1].IsString()) {
+    if ("no-repeat" == info[1].As<Napi::String>().Utf8Value()) {
+      _repeat = NO_REPEAT;
+    } else if ("repeat-x" == info[1].As<Napi::String>().Utf8Value()) {
+      _repeat = REPEAT_X;
+    } else if ("repeat-y" == info[1].As<Napi::String>().Utf8Value()) {
+      _repeat = REPEAT_Y;
+    }
   }
-  Pattern *pattern = new Pattern(surface, repeat);
-  pattern->Wrap(info.This());
-  info.GetReturnValue().Set(info.This());
+
+  cairo_matrix_init_identity(&matrix);
+  cairo_matrix_invert(&matrix);
 }
 
 /*
- * Initialize pattern.
+ * Set the pattern-space to user-space transform.
  */
 
-Pattern::Pattern(cairo_surface_t *surface, repeat_type_t repeat) {
-  _pattern = cairo_pattern_create_for_surface(surface);
-  _repeat = repeat;
-  cairo_pattern_set_user_data(_pattern, pattern_repeat_key, &_repeat, NULL);
-}
+void
+Pattern::setTransform(const Napi::CallbackInfo& info) {
+  if (!info[0].IsObject()) {
+    Napi::TypeError::New(env, "Expected DOMMatrix").ThrowAsJavaScriptException();
+    return;
+  }
 
-repeat_type_t Pattern::get_repeat_type_for_cairo_pattern(cairo_pattern_t *pattern) {
-  void *ud = cairo_pattern_get_user_data(pattern, pattern_repeat_key);
-  return *reinterpret_cast<repeat_type_t*>(ud);
+  Napi::Object mat = info[0].As<Napi::Object>();
+
+  InstanceData* data = env.GetInstanceData<InstanceData>();
+  if (!mat.InstanceOf(data->DOMMatrixCtor.Value()).UnwrapOr(false)) {
+    if (!env.IsExceptionPending()) {
+      Napi::TypeError::New(env, "Expected DOMMatrix").ThrowAsJavaScriptException();
+    }
+    return;
+  }
+
+  Napi::Value one = Napi::Number::New(env, 1);
+  Napi::Value zero = Napi::Number::New(env, 0);
+
+  cairo_matrix_init(&matrix,
+    mat.Get("a").UnwrapOr(one).As<Napi::Number>().DoubleValue(),
+    mat.Get("b").UnwrapOr(zero).As<Napi::Number>().DoubleValue(),
+    mat.Get("c").UnwrapOr(zero).As<Napi::Number>().DoubleValue(),
+    mat.Get("d").UnwrapOr(one).As<Napi::Number>().DoubleValue(),
+    mat.Get("e").UnwrapOr(zero).As<Napi::Number>().DoubleValue(),
+    mat.Get("f").UnwrapOr(zero).As<Napi::Number>().DoubleValue()
+  );
+
+  cairo_matrix_invert(&matrix);
 }
 
 /*
- * Destroy the pattern.
+ * Create a cairo pattern on-demand
  */
 
-Pattern::~Pattern() {
-  cairo_pattern_destroy(_pattern);
+cairo_pattern_t*
+Pattern::createCairoPattern(double alpha, cairo_filter_t patternQuality) {
+  cairo_surface_t *source_surface = nullptr;
+
+  if (canvas) {
+    source_surface = canvas->ensureSurface();
+  } else if (image) {
+    source_surface = image->surface.surface();
+  }
+
+  if (!source_surface) return nullptr;
+
+  cairo_pattern_t *pattern = cairo_pattern_create_for_surface(source_surface);
+
+  if (alpha < 1) {
+    int width = cairo_image_surface_get_width(source_surface);
+    int height = cairo_image_surface_get_height(source_surface);
+    cairo_surface_t *mask_surface = cairo_image_surface_create(
+      CAIRO_FORMAT_ARGB32,
+      width,
+      height
+    );
+    cairo_t *mask_context = cairo_create(mask_surface);
+    if (cairo_status(mask_context) != CAIRO_STATUS_SUCCESS) {
+      return NULL;
+    }
+    cairo_set_source(mask_context, pattern);
+    cairo_paint_with_alpha(mask_context, alpha);
+    cairo_destroy(mask_context);
+    cairo_pattern_destroy(pattern);
+    pattern = cairo_pattern_create_for_surface(mask_surface);
+    cairo_surface_destroy(mask_surface);
+  }
+
+  cairo_pattern_set_filter(pattern, patternQuality);
+  cairo_pattern_set_matrix(pattern, &matrix);
+
+  return pattern;
 }

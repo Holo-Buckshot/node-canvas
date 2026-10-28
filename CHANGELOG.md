@@ -9,10 +9,212 @@ project adheres to [Semantic Versioning](http://semver.org/).
 ==================
 ### Changed
 ### Added
-* Added support for  `inverse()` and `invertSelf()` to `DOMMatrix` (#1648)
 ### Fixed
+* Check a type tag before unwrapping a native object, so a forged prototype chain can no longer crash the process (#2628)
+* Load images from Node.js object URLs (#2525)
+
+3.2.3
+==================
+### Fixed
+* Fix building with gcc (#2559)
+
+3.2.2
+==================
+### Fixed
+* Fix dangling env pointer in image MIME data cleanup (#2550)
+* Fix `ctx.direction` not affected by `ctx.save` and `ctx.restore`
+* Preserve rest of PDF pages when changing width and height (#2538)
+* Several security fixes for untrusted inputs to getImageData and putImageData. Thanks to Ethan Kim for the report.
+
+3.2.1
+==================
+* Fix error message HTTP response status code in image src setter
+* `roundRect()` shape incorrect when radii were large relative to rectangle size (#2400)
+* Reject loadImage when src is null or invalid (#2304)
+* Fix compilation on GCC 15 by including <cstdint> (#2545)
+
+3.2.0
+==================
+### Added
+* Added `ctx.lang` to set the ISO language code for text
+
+3.1.2
+==================
+### Fixed
+* Fix crash when setting width/height on PDF, SVG canvas (#2520)
+
+3.1.1
+==================
+### Fixed
+* Fix a crash when SVGs without width or height are loaded (#2486)
+* Fix fetching prebuilds during installation on certain newer versions of Node (#2497)
+* Fixed issue with fillText that was breaking subsequent fillText calls (#2171)
+* Fix svg rendering when the image is resized (#2498)
+* Fix measureText with direction rtl textAlign start/end
+* Fix a crash in Node 24, due to external memory API change (#2514)
+
+3.1.0
+==================
+### Changed
+* Replaced `simple-get ` with ` Node.js builtin` `fetch` (#2309)
+* `ctx.font` has a new C++ parser and is 2x-400x faster. Please file an issue if you experience different results, as caching has been removed.
+* The restriction of registering fonts before a canvas is created has been removed. You can now register a font as late as right before the `fillText` call ([#1921](https://github.com/Automattic/node-canvas/issues/1921))
+
+### Added
+* Support for accessibility and links in PDFs
+* `ctx.direction` is implemented: `'rtl'` or `'ltr'` set the base direction of text
+* `ctx.textAlign` `'start'` and `'end'` are now `'right'` and `'left'` when `ctx.direction === 'rtl'`
+
+### Fixed
+* Fix a crash in `getImageData` when the rectangle is entirely outside the canvas. ([#2024](https://github.com/Automattic/node-canvas/issues/2024))
+* Fix `getImageData` cropping the resulting `ImageData` when the given rectangle is partly outside the canvas. ([#1849](https://github.com/Automattic/node-canvas/issues/1849))
+
+3.0.1
+==================
+### Fixed
+* Fixed accidental depenency on ambient DOM types
+
+3.0.0
+==================
+
+This release notably changes to using N-API. 🎉
+
+### Breaking
+* Dropped support for Node.js 16.x and below.
+### Changed
+* Migrated to N-API (by way of node-addon-api) and removed libuv and v8 dependencies
+* Change from node-pre-gyp to prebuild-install
+* Defer the initialization of the `op` variable to the `default` switch case to avoid a compiler warning. (#2229)
+* Use a `default` switch case with a null statement if some enum values aren't suppsed to be handled, this avoids a compiler warning. (#2229)
+* Migrate from librsvg's deprecated `rsvg_handle_get_dimensions()` and `rsvg_handle_render_cairo()` functions to the new `rsvg_handle_get_intrinsic_size_in_pixels()` and `rsvg_handle_render_document()` respectively. (#2229)
+* Avoid calling virtual methods in constructors/destructors to avoid bypassing virtual dispatch. (#2229)
+* Remove unused private field `backend` in the `Backend` class. (#2229)
+* Add Node.js v20 to CI. (#2237)
+* Replaced `dtslint` with `tsd` (#2313)
+* Changed PNG consts to static properties of Canvas class
+* Reverted improved font matching on Linux (#1572) because it doesn't work if fonts are installed. If you experience degraded font selection, please file an issue and use v3.0.0-rc3 in the meantime.
+
+### Added
+* Added string tags to support class detection
+* Throw Cairo errors in canvas.toBuffer()
+### Fixed
+* Fix a case of use-after-free. (#2229)
+* Fix usage of garbage value by filling the allocated memory entirely with zeros if it's not modified. (#2229)
+* Fix a potential memory leak. (#2229)
+* Fix the wrong type of setTransform
+* Fix the improper parsing of rgb functions issue. (#2300)
+* Fix issue related to improper parsing of leading and trailing whitespaces in CSS color. (#2301)
+* RGB functions should support real numbers now instead of just integers. (#2339)
+* Allow alternate or properly escaped quotes *within* font-family names
+* Fix TextMetrics type to include alphabeticBaseline, emHeightAscent, and emHeightDescent properties
+* Fix class properties should have defaults as standard js classes (#2390)
+* Fixed Exif orientation in JPEG files being ignored (#1670)
+* Align DOMMatrix/DOMPoint to spec by adding missing methods
+
+2.11.2
+==================
+### Fixed
+* Building on Windows in CI (and maybe other Windows configurations?) (#2216)
+
+2.11.1
+==================
+### Fixed
+* Add missing property `canvas` to the `CanvasRenderingContext2D` type
+* Fixed glyph positions getting rounded, resulting text having a slight `letter-spacing` effect
+* Fixed `ctx.font` not being restored correctly after `ctx.restore()` (#1946)
+
+2.11.0
+==================
+### Fixed
+* Replace triple-slash directive in types with own types to avoid polluting TS modules with globals ([#1656](https://github.com/Automattic/node-canvas/issues/1656))
+
+2.10.2
+==================
+### Fixed
+* Fix `Assertion failed: (object->InternalFieldCount() > 0), function Unwrap, file nan_object_wrap.h, line 32.` ([#2025](https://github.com/Automattic/node-canvas/issues/2025))
+* `textBaseline` and `textAlign` were not saved/restored by `save()`/`restore()`. ([#1936](https://github.com/Automattic/node-canvas/issues/2029))
+* Update nan to v2.17.0 to ensure Node.js v18+ support.
+### Changed
+* Improve performance and memory usage of `save()`/`restore()`.
+* `save()`/`restore()` no longer have a maximum depth (previously 64 states).
+
+2.10.1
+==================
+### Fixed
+* Fix `actualBoundingBoxLeft` and `actualBoundingBoxRight` when `textAlign='center'` or `'right'` ([#1909](https://github.com/Automattic/node-canvas/issues/1909))
+* Fix `rgba(r,g,b,0)` with alpha to 0 should parse as transparent, not opaque. ([#2110](https://github.com/Automattic/node-canvas/pull/2110))
+
+2.10.0
+==================
+### Added
+* Export `pangoVersion`
+* [`ctx.roundRect()`](https://developer.chrome.com/blog/canvas2d/#round-rect)
+### Fixed
+* `rgba(r,g,b)` with no alpha should parse as opaque, not transparent. ([#2029](https://github.com/Automattic/node-canvas/issues/2029))
+* Typo in `PngConfig.filters` types. ([#2072](https://github.com/Automattic/node-canvas/issues/2072))
+* `createPattern()` always used "repeat" mode; now supports "repeat-x" and "repeat-y". ([#2066](https://github.com/Automattic/node-canvas/issues/2066))
+* Crashes and hangs when using non-finite values in `context.arc()`. ([#2055](https://github.com/Automattic/node-canvas/issues/2055))
+* Incorrect `context.arc()` geometry logic for full ellipses. ([#1808](https://github.com/Automattic/node-canvas/issues/1808), ([#1736](https://github.com/Automattic/node-canvas/issues/1736)))
+* Added missing `deregisterAllFonts` to the Typescript declaration file ([#2096](https://github.com/Automattic/node-canvas/pull/2096))
+* Add `User-Agent` header when requesting remote images ([#2099](https://github.com/Automattic/node-canvas/issues/2099))
+
+2.9.3
+==================
+### Fixed
+* Wrong fonts used when calling `registerFont` multiple times with the same family name ([#2041](https://github.com/Automattic/node-canvas/issues/2041))
+
+2.9.2
+==================
+### Fixed
+* All exports now work when Canvas is used in ES Modules (ESM). ([#2047](https://github.com/Automattic/node-canvas/pull/2047))
+* `npm rebuild` will now re-fetch prebuilt binaries to avoid `NODE_MODULE_VERSION` mismatch errors. ([#1982](https://github.com/Automattic/node-canvas/pull/1982))
+
+2.9.1
+==================
+### Fixed
+* Stringify CanvasGradient, CanvasPattern and ImageData like browsers do. (#1639, #1646)
+* Add missing include for `toupper`.
+* Throw an error instead of crashing the process if `getImageData` or `putImageData` is called on a PDF or SVG canvas (#1853)
+* Compatibility with Typescript 4.6
+* Near-perfect font matching on Linux (#1572)
+* Fix multi-byte font path support on Windows.
+* Allow rebuild of this library
+
+2.9.0
+==================
+### Changed
+* Refactor functions to classes.
+* Changed `DOMPoint()` constructor to check for parameter nullability.
+* Changed `DOMMatrix.js` to use string literals for non-special cases.
+* Remove semicolons from Dommatrix.js.
+* Update nan to v2.15.0 to ensure Node.js v14+ support.
+* Clean up inf/nan macros and slightly speed up argument checking.
+### Added
+* Added `deregisterAllFonts` method to free up memory and reduce font conflicts.
+### Fixed
+* Support Apple M1 Homebrew install that puts canvas install library files in `/opt/homebrew/lib`
+
+2.8.0
+==================
+### Changed
+* Upgrade dtslint
+* Upgrade node-pre-gyp to 1.0.0. Note that if you are using special node-pre-gyp
+  features like `node_pre_gyp_accessKeyId`, you may need to make changes to your
+  installation procedure. See https://github.com/mapbox/node-pre-gyp/blob/master/CHANGELOG.md#100.
+* Add Node.js v16 to CI.
+* The C++ class method `nBytes()` now returns a size_t. (Because this is a C++
+  method only, this is not considered a breaking change.)
+### Added
+* Add support for  `inverse()` and `invertSelf()` to `DOMMatrix` (#1648)
+* Add support for `context.getTransform()` ([#1769](https://github.com/Automattic/node-canvas/pull/1769))
+* Add support for `context.setTransform(dommatrix)` ([#1769](https://github.com/Automattic/node-canvas/pull/1769))
+### Fixed
+* Fix `actualBoundingBoxLeft` and `actualBoundingBoxRight` returned by `measureText` to be the ink rect ([#1776](https://github.com/Automattic/node-canvas/pull/1776), fixes [#1703](https://github.com/Automattic/node-canvas/issues/1703)).
 * Fix Pango logging "expect ugly output" on Windows (#1643)
 * Fix benchmark for createPNGStream (#1672)
+* Fix dangling reference in BackendOperationNotAvailable exception (#1740)
+* Fix always-false comparison warning in Canvas.cc.
+* Fix Node.js crash when throwing from an onload or onerror handler.
 
 2.7.0
 ==================
@@ -24,6 +226,7 @@ project adheres to [Semantic Versioning](http://semver.org/).
 * Speed up `fillStyle=` and `strokeStyle=`
 ### Added
 * Export `rsvgVersion`.
+* CanvasPattern’s `setTransform` method is no longer missing
 ### Fixed
 * Fix BMP issues. (#1497)
 * Update typings to support jpg and addPage on NodeCanvasRenderingContext2D (#1509)

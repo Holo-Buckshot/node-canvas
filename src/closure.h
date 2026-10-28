@@ -2,20 +2,21 @@
 
 #pragma once
 
+class Canvas;
+#include <cairo.h>
+
 #include "Canvas.h"
 
-#ifdef HAVE_JPEG
+#include <stddef.h>
+#include <stdio.h>
 #include <jpeglib.h>
-#endif
 
-#include <nan.h>
+#include <napi.h>
 #include <png.h>
 #include <stdint.h> // node < 7 uses libstdc++ on macOS which lacks complete c++11
 #include <vector>
 
-#ifndef PAGE_SIZE
-  #define PAGE_SIZE 4096
-#endif
+constexpr size_t CANVAS_PAGE_SIZE = 4096;
 
 /*
  * Image encoding closures.
@@ -23,7 +24,7 @@
 
 struct Closure {
   std::vector<uint8_t> vec;
-  Nan::Callback cb;
+  Napi::FunctionReference cb;
   Canvas* canvas = nullptr;
   cairo_status_t status = CAIRO_STATUS_SUCCESS;
 
@@ -56,7 +57,6 @@ struct PngClosure : Closure {
   PngClosure(Canvas* canvas) : Closure(canvas) {};
 };
 
-#ifdef HAVE_JPEG
 struct JpegClosure : Closure {
   uint32_t quality = 75;
   uint32_t chromaSubsampling = 2;
@@ -78,4 +78,15 @@ struct JpegClosure : Closure {
     delete jpeg_dest_mgr;
   }
 };
-#endif
+
+class EncodingWorker : public Napi::AsyncWorker {
+  public:
+    EncodingWorker(Napi::Env env): Napi::AsyncWorker(env) {};
+    void Init(void (*work_fn)(Closure*), Closure* closure);
+    void Execute() override;
+    void OnWorkComplete(Napi::Env env, napi_status status) override;
+
+  private:
+    void (*work_fn)(Closure*) = nullptr;
+    Closure* closure = nullptr;
+};
