@@ -12,8 +12,8 @@ project adheres to [Semantic Versioning](http://semver.org/).
   and in any number of `worker_threads` Workers at once. Native per-module
   state (class templates, the DOMMatrix and font-parser hooks) is kept per
   environment instead of in process-wide statics.
-* `npm install` always builds from source; the upstream prebuilt binaries are
-  not context-aware.
+* Install always builds from source with `node-gyp rebuild` (node-pre-gyp is
+  no longer used); the upstream prebuilt binaries are not context-aware.
 ### Added
 * Added support for  `inverse()` and `invertSelf()` to `DOMMatrix` (#1648)
 ### Fixed
